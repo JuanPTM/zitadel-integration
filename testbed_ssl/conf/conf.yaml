@@ -1,0 +1,8 @@
+# All possible options and their defaults: https://github.com/zitadel/zitadel/blob/main/cmd/defaults.yaml
+Log:
+  Level: 'info'
+
+# Make ZITADEL accessible over HTTP, not HTTPS
+ExternalSecure: true
+ExternalDomain: zitadel.testbed.osism.xyz
+ExternalPort: 443

@@ -1,0 +1,68 @@
+## 1. Zitadel deployment
+   We are using a modified version of the example docker-compose deployment in Zitadel (https://zitadel.com/docs/self-hosting/deploy/compose).
+   In our case we deploy Zitadel behind Traefik, Traefik will handle all the TLS connections and after that it won't use TLS.
+   To achieve that we add some labels to the compose, almost all are the same that keycloak, but a new one is needed to make Zitadel work due to gRPC.
+   `"traefik.http.services.zitadel-secure.loadbalancer.server.scheme=h2c"`
+   Also there is an initial organization and user created. It can be found and modify on `initial-conf.yaml`
+
+
+   run `docker compose up -d`
+
+
+## 2. TLS Problems
+   The next problem encountered is that the Keystone container can't resolve the SSL certificate for the testbed.
+   To solve this problem, we had to copy the testbed CA to the container
+
+   ```
+   docker cp testbed_cert.pem keystone:/testbed_cert.pem
+   docker exec -ti keystone bash
+   cp testbed_cert.pem /usr/local/share/ca-certificates/
+   cd /usr/local/share/ca-certificates/
+   openssl x509 -inform PEM -in testbed_cert.pem -out zitadel-customca-testbed.crt
+   update-ca-certificates
+
+   ```
+
+
+
+## 3. Keystone Configuration
+   Inside the nodes of the testbed, we modify the keystone configuration file `wsgi-keystone.conf`
+   Change response type, security reasons ( https://input.scs.community/scs-community-hackathon-2023#SCS-OpenStack-login-IdP-with-Zitadel )
+   Every comment line can be removed, the final file is here.
+
+      
+
+   Keystone mapping file. It's on `federation/oidc/attribute_maps/oidc_attribute_mappingId1.json`
+   In our case It has been modified to workaround the non custom claims, so we are maping `OIDC-given_name` as project name in openstack.
+   
+
+
+## 4. OpenStack Configuration
+   The mapping file from `federation/oidc/attribute_maps/oidc_attribute_mappingId1.json` has to be copied to `/opt/configuration/environments/openstack/` 
+   on the manager node (it has to be here because its mounted into the openstackclient container). After that the following commands have to be executed 
+   to create and assign the mapper on openstack.
+
+
+   ```
+   OS_CLOUD=admin openstack mapping create --rules /configuration/oidc_attribute_mappingId1.json mappingId2
+   OS_CLOUD=admin openstack federation protocol set --identity-provider keycloak --mapping mappingId2 openid
+   OS_CLOUD=admin openstack identity provider set --remote-id "https://zitadel.testbed.osism.xyz" --remote-id "https://keycloak.testbed.osism.xyz/auth/realms/osism" keycloak
+
+   ```
+
+   In the future a new identity has to be created called Zitadel to not reuse the keycloak one.
+
+
+
+## 5. Zitadel client configuration
+
+   The OIDC client created in Zitadel is created as follows:
+   Login to the admin console, navigate to your desire organization, click on projects, create a project or select one, Click on new Client.
+   Select Web client, PKCE as authentication method, specify the redirect uri's (https://api.testbed.osism.xyz and https://api.testbed.osism.xyz:5000/redirect_uri).
+
+
+
+
+   
+
+

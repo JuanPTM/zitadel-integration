@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  zitadel:
+    container_name: 'zitadel'
+    restart: 'always'
+    image: 'ghcr.io/zitadel/zitadel:latest'
+    command: 'start-from-init --config /conf.yaml --steps /initial-setup.yaml --masterkey "MasterkeyNeedsToHave32Characters" --tlsMode external'
+    environment:
+      - 'ZITADEL_DATABASE_COCKROACH_HOST=crdb'
+      - 'ZITADEL_EXTERNALSECURE=false'
+    depends_on:
+      crdb:
+        condition: 'service_healthy'
+    ports:
+      - '8080:8080'
+    volumes:
+      - './conf/conf.yaml:/conf.yaml:ro'
+      - './initial-setup.yaml:/initial-setup.yaml'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.middlewares.zitadel-redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.zitadel-redirect-to-https.redirectscheme.permanent=true"
+      - "traefik.http.routers.zitadel.entrypoints=http"
+      - "traefik.http.routers.zitadel.rule=Host(`zitadel.testbed.osism.xyz`)"
+      - "traefik.http.routers.zitadel.middlewares=zitadel-redirect-to-https@docker"
+      - "traefik.http.services.zitadel-secure.loadbalancer.server.port=8080"
+      - "traefik.http.routers.zitadel-secure.tls=true"
+#      - "traefik.http.routers.zitadel-secure.tls.options.default.alpnProtocols=h2"
+      - "traefik.http.routers.zitadel-secure.entrypoints=https"
+      - "traefik.http.routers.zitadel-secure.rule=Host(`zitadel.testbed.osism.xyz`)"
+      - "traefik.http.services.zitadel-secure.loadbalancer.server.scheme=h2c"
+    networks:
+      - 'zitadel'
+      - 'traefik'
+
+  crdb:
+    container_name: 'crdb'
+    restart: 'always'
+    networks:
+      - 'zitadel'
+    image: 'cockroachdb/cockroach:v22.2.2'
+    command: 'start-single-node --insecure'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
+      interval: '10s'
+      timeout: '30s'
+      retries: 5
+      start_period: '20s'
+    ports:
+      - '9090:8080'
+      - '26257:26257'
+
+networks:
+  zitadel:
+#    driver: bridge
+#    driver_opts:
+#      com.docker.network.driver.mtu: 1400
+#    ipam:
+#      driver: default
+#      config:
+#        - subnet:  172.31.100.212/28
+  traefik:
+    external: true
+#  zitadel:
+#    external: false
