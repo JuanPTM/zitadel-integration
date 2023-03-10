@@ -30,7 +30,7 @@
    Change response type, security reasons ( https://input.scs.community/scs-community-hackathon-2023#SCS-OpenStack-login-IdP-with-Zitadel )
    Every comment line can be removed, the final file is here.
 
-      
+      https://github.com/JuanPTM/zitadel-integration/blob/master/keystone/wsgi-keystone.conf
 
    Keystone mapping file. It's on `federation/oidc/attribute_maps/oidc_attribute_mappingId1.json`
    In our case It has been modified to workaround the non custom claims, so we are maping `OIDC-given_name` as project name in openstack.
@@ -63,6 +63,7 @@
 
 
 
+For a more in depth notes: https://etherpad-lite.knut.univention.de/etherpad/p/SCS-Zitadel-Hacking
    
 
 
